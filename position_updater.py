@@ -1,9 +1,11 @@
 import os
-import time
+import re
 from dotenv import dotenv_values
 from pybit import usdt_perpetual
 from Bybit import Orders, logger
 
+# MUST CHECK BEFORE EVERY NEW ENTRY
+# TICKER - QTY - ENTRIES - GRID = .env accounts
 os.system("cls")
 GO = "\x1b[u"
 SAV = "\x1b[s"
@@ -11,10 +13,14 @@ config = dotenv_values(".env")
 CP = 0
 LP = 0
 # accounts to be used by this script .env should have all accounts
-GRID = range(0, 2)
-TICKER = "BTCUSDT"
-QTY = 0.001
-ENTRIES = [15_000,20_000]
+GRID = range(0, 1)
+TICKER = "AGIXUSDT"
+QTY = 15
+ENTRIES = [0.53435]
+# get decimal digit count for better print
+regex_pattern = re.findall('([\d+]*)(\.)([\d+]*)',str(float(ENTRIES[0])))
+formate_int = len(str(regex_pattern[0][2]))
+
 STOP_LOSS = 0.5 / 100
 active_positions = {"A0": {"Buy": False, "Sell": False}}
 active_orders = {"A0": {"Buy": False, "Sell": False}}
@@ -170,15 +176,22 @@ accounts_dict = initiaize_account_instance()
 initialize_execution_stream()
 current_market_price()
 update_active_orders()
-print(f"{'ACCOUNT':<10}{'ENTRY':<15}{'STOP_LOSS':<10}{'TOTAL_TRADES':<8}")
+print(f"{'ACCOUNT':<10}{'ENTRY':<15}{'STOP_LOSS':<20}{'TOTAL_TRADES':<8}")
 print(SAV)
 
 while True:
     if CP != LP:
         open_positions()
+        trade_count = 0
         for grid_line in GRID:
+            lsl = round(ENTRIES[grid_line] - (ENTRIES[grid_line] * STOP_LOSS),formate_int)
+            ssl = round(ENTRIES[grid_line] + (ENTRIES[grid_line] * STOP_LOSS),formate_int)
+            trade_count += TOTAL_TARDES[f'A{grid_line}']
             print(
-                f"{('A'+str(grid_line)):<10}{ENTRIES[grid_line]:<10.2f}{(ENTRIES[grid_line] + (ENTRIES[grid_line] * STOP_LOSS)):<15.2f}{TOTAL_TARDES[f'A{grid_line}']:<8}{GO}" 
+                f"{('A'+str(grid_line)):<10}{ENTRIES[grid_line]:<15.{formate_int}f}{(str(lsl)+'/'+str(ssl)):<20}{TOTAL_TARDES[f'A{grid_line}']:<8}{'-' if active_positions[f'A{grid_line}']['Buy'] == False and active_positions[f'A{grid_line}']['Sell'] == False else 'L' if active_positions[f'A{grid_line}']['Buy'] == True and active_positions[f'A{grid_line}']['Sell'] == False else 'S' if active_positions[f'A{grid_line}']['Buy'] == False and active_positions[f'A{grid_line}']['Sell'] == True else '/'} " 
             ) 
+        print(f"\n\n{'SUMMARY':-<45}")
+        print(f'PRICE = {CP:30.{formate_int}f} {trade_count:>7}')
+        print(GO)
 
         LP = CP
