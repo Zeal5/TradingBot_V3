@@ -193,9 +193,7 @@ class Orders:
             )
             return True
 
-    def long_order(
-        self, ticker, entry_price: float, qty, stop_loss, long_tp=None
-    ) -> bool:
+    def long_order(self, ticker, entry_price: float, qty, stop_loss, long_tp=None) -> bool:
         """Places long order takes in entry price for placing a long order"""
 
         try:
@@ -222,9 +220,7 @@ class Orders:
             )
             return True
 
-    def conditional_long(
-        self, ticker, entry_price: float, qty, stop_loss, long_tp=None
-    ) -> bool:
+    def conditional_long(self, ticker, entry_price: float, qty, stop_loss, long_tp=None) -> bool:
         """Place conditional orders AKA longs above market price"""
         try:
             long = self.session.place_conditional_order(
@@ -233,7 +229,7 @@ class Orders:
                 side="Buy",
                 qty=qty,
                 # base price is compared to stop_px to figure out if the order will be triggerd by price crossing from upper side or lower side
-                base_price=self.get_market_price(),
+                base_price=self.get_market_price(ticker),
                 stop_px=entry_price,
                 time_in_force="GoodTillCancel",
                 trigger_by="LastPrice",
@@ -250,10 +246,9 @@ class Orders:
             logger.info(
                 f"{self} Limit Long has been set at {entry_price} tp:{long_tp if long_tp else ''}/sl:{entry_price - (entry_price * stop_loss)}"
             )
+            return True
 
-    def conditional_short(
-        self, ticker, entry_price: float, qty, stop_loss, short_tp
-    ) -> bool:
+    def conditional_short(self, ticker, entry_price: float, qty, stop_loss, short_tp=None) -> bool:
         """Place conditional orders AKA shorts below market price"""
         try:
             short = self.session.place_conditional_order(
@@ -262,7 +257,7 @@ class Orders:
                 order_type="Market",
                 side="Sell",
                 # base price is compared to stop_px to figure out if the order will be triggerd by price crossing from upper side or lower side
-                base_price=self.get_market_price(),
+                base_price=self.get_market_price(ticker),
                 stop_px=entry_price,
                 time_in_force="GoodTillCancel",
                 trigger_by="LastPrice",
@@ -278,3 +273,4 @@ class Orders:
             logger.info(
                 f"{self} Limit Short has been set at {entry_price} tp:{short_tp if short_tp else ''}/sl:{entry_price + (entry_price * stop_loss)}"
             )
+            return True

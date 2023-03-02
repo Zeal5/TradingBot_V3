@@ -9,12 +9,14 @@ CP = 0
 LP = 0
 # accounts to be used by this script .env should have all accounts
 GRID = range(0, 2)
-TRADE = {"BTCUSDT": []}
+TICKER = "BTCUSDT"
+QTY = 0.001
+ENTRIES = [22_000,22_500]
 active_positions = {"A0": {"Buy": False, "Sell": False}}
-active_orders = {}
+active_orders = {"A0": {"Buy": False, "Sell": False}}
 def update_active_orders():
     for account_name, account_instance in accounts_dict.items():
-        active_orders[account_name] = account_instance.active_orders("BTCUSDT")
+        active_orders[account_name] = account_instance.active_orders(TICKER)
 
 def initiaize_account_instance() -> dict:
     """Based on GRID= range(number of accounts) global variable creates account instances
@@ -26,7 +28,7 @@ def initiaize_account_instance() -> dict:
             name=f"A{i}", api_key=config[f"A{i}"], api_secret=config[f"S{i}"]
         )
     for account_name, account_instance in accounts_dict.items():
-        active_positions[f"{account_name}"] = account_instance.open_positions("BTCUSDT")
+        active_positions[f"{account_name}"] = account_instance.open_positions(TICKER)
 
     return accounts_dict
     
@@ -37,6 +39,7 @@ def initialize_execution_stream() -> dict:
     def positions(account, mes):
         ticker = mes["data"][0]["symbol"]
         active_positions[account] = accounts_dict[account].open_positions(ticker)
+        active_orders[account] = accounts_dict[account].active_orders(TICKER)
 
     def wrapper(account):
         return lambda data: positions(account, mes=data)
@@ -66,15 +69,38 @@ def current_market_price() -> None:
     ws = usdt_perpetual.WebSocket(
         test=False, api_key=config[f"A{GRID[0]}"], api_secret=config[f"S{GRID[0]}"]
     )
-    ws.instrument_info_stream(price_update, "BTCUSDT")
+    ws.instrument_info_stream(price_update, TICKER)
     logger.info(f"A0 account being used for price streaming")
 
 accounts_dict = initiaize_account_instance()
 initialize_execution_stream()
 current_market_price()
 update_active_orders()
+
 while True:
     time.sleep(1)
     if CP != LP:
-        print(f"cp = {CP} / lp = {LP} {active_orders}", end="\r")
+        print(f"cp = {CP} / lp = {LP} {active_orders} {active_positions}", end="\r")
+        for i in range(len(ENTRIES)):
+            if ENTRIES[i] < CP:
+                if active_positions[f'A{i}']['Buy'] == False and active_orders[f'A{i}']['Buy'] == False:
+                    if accounts_dict[f'A{i}'].long_order(TICKER,ENTRIES[i],QTY,stop_loss = (0.5/100)) == True:
+                        active_orders[f'A{i}']['Buy'] = True
+                    else:
+                        logger.error(f"Failed to set long order for account A{i} at {ENTRIES[i]}") 
+
+                    
+                if active_positions[f'A{i}']['Sell'] == False and active_orders[f'A{i}']['Sell'] == False:
+                    if accounts_dict[f'A{i}'].conditional_short(TICKER,ENTRIES[i],QTY,stop_loss = (0.5/100)) == True:
+                        active_orders[f'A{i}']['Sell'] = True
+                    else:
+                        logger.error(f"Failed to set conditional short order for account A{i} at {ENTRIES[i]}") 
+
+
+
+
         LP = CP
+
+    
+    
+    
