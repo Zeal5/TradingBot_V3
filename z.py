@@ -1,8 +1,8 @@
-import os, time
+import os
+import time
 from dotenv import dotenv_values
 from pybit import usdt_perpetual
 from Bybit import Orders, logger
-from pprint import pprint
 
 config = dotenv_values(".env")
 CP = 0
@@ -11,12 +11,15 @@ LP = 0
 GRID = range(0, 2)
 TICKER = "BTCUSDT"
 QTY = 0.001
-ENTRIES = [22_000,22_500]
+ENTRIES = [15_000, 30_000]
 active_positions = {"A0": {"Buy": False, "Sell": False}}
 active_orders = {"A0": {"Buy": False, "Sell": False}}
+
+
 def update_active_orders():
     for account_name, account_instance in accounts_dict.items():
         active_orders[account_name] = account_instance.active_orders(TICKER)
+
 
 def initiaize_account_instance() -> dict:
     """Based on GRID= range(number of accounts) global variable creates account instances
@@ -28,17 +31,20 @@ def initiaize_account_instance() -> dict:
             name=f"A{i}", api_key=config[f"A{i}"], api_secret=config[f"S{i}"]
         )
     for account_name, account_instance in accounts_dict.items():
-        active_positions[f"{account_name}"] = account_instance.open_positions(TICKER)
+        active_positions[f"{account_name}"] = account_instance.open_positions(
+            TICKER)
 
     return accounts_dict
-    
+
+
 def initialize_execution_stream() -> dict:
     """Initialize executions streams for all accounts when new positions is opend/closed
     update active_positons dict to see if new position has been opened or closed in which account"""
 
     def positions(account, mes):
         ticker = mes["data"][0]["symbol"]
-        active_positions[account] = accounts_dict[account].open_positions(ticker)
+        active_positions[account] = accounts_dict[account].open_positions(
+            ticker)
         active_orders[account] = accounts_dict[account].active_orders(TICKER)
 
     def wrapper(account):
@@ -59,6 +65,7 @@ def initialize_execution_stream() -> dict:
 
     return ws_dict
 
+
 def current_market_price() -> None:
     """instrument stream to open web_socket which keeps updating CP global variable"""
 
@@ -72,35 +79,81 @@ def current_market_price() -> None:
     ws.instrument_info_stream(price_update, TICKER)
     logger.info(f"A0 account being used for price streaming")
 
+
 accounts_dict = initiaize_account_instance()
 initialize_execution_stream()
 current_market_price()
 update_active_orders()
 
 while True:
-    time.sleep(1)
     if CP != LP:
-        print(f"cp = {CP} / lp = {LP} {active_orders} {active_positions}", end="\r")
+        print(
+            f"cp = {CP} / lp = {LP} {active_orders} {active_positions}", end="\r")
         for i in range(len(ENTRIES)):
-            if ENTRIES[i] < CP:
-                if active_positions[f'A{i}']['Buy'] == False and active_orders[f'A{i}']['Buy'] == False:
-                    if accounts_dict[f'A{i}'].long_order(TICKER,ENTRIES[i],QTY,stop_loss = (0.5/100)) == True:
-                        active_orders[f'A{i}']['Buy'] = True
+            if ENTRIES[i] < CP and (active_orders[f"A{i}"]["Buy"] == False or active_orders[f"A{i}"]["Sell"] == False):
+                if (
+                    active_positions[f"A{i}"]["Buy"] == False
+                    and active_orders[f"A{i}"]["Buy"] == False
+                ):
+                    if (accounts_dict[f"A{i}"].long_order(TICKER, ENTRIES[i], QTY, stop_loss=(0.5 / 100))
+                        == True
+                        ):
+                        active_orders[f"A{i}"]["Buy"] = True
                     else:
-                        logger.error(f"Failed to set long order for account A{i} at {ENTRIES[i]}") 
+                        logger.error(
+                            f"Failed to set long order for account A{i} at {ENTRIES[i]}"
+                        )
 
-                    
-                if active_positions[f'A{i}']['Sell'] == False and active_orders[f'A{i}']['Sell'] == False:
-                    if accounts_dict[f'A{i}'].conditional_short(TICKER,ENTRIES[i],QTY,stop_loss = (0.5/100)) == True:
-                        active_orders[f'A{i}']['Sell'] = True
+                if (
+                    active_positions[f"A{i}"]["Sell"] == False
+                    and active_orders[f"A{i}"]["Sell"] == False
+                ):
+                    if (
+                        accounts_dict[f"A{i}"].conditional_short(
+                            TICKER, ENTRIES[i], QTY, stop_loss=(0.5 / 100)
+                        )
+                        == True
+                    ):
+                        active_orders[f"A{i}"]["Sell"] = True
                     else:
-                        logger.error(f"Failed to set conditional short order for account A{i} at {ENTRIES[i]}") 
+                        logger.error(
+                            f"Failed to set conditional short order for account A{i} at {ENTRIES[i]}"
+                        )
 
+            if ENTRIES[i] > CP and (
+                active_orders[f"A{i}"]["Buy"] == False
+                or active_orders[f"A{i}"]["Sell"] == False
+            ):
+                if (
+                    active_positions[f"A{i}"]["Buy"] == False
+                    and active_orders[f"A{i}"]["Buy"] == False
+                ):
+                    if (
+                        accounts_dict[f"A{i}"].conditional_long(
+                            TICKER, ENTRIES[i], QTY, stop_loss=(0.5 / 100)
+                        )
+                        == True
+                    ):
+                        active_orders[f"A{i}"]["Buy"] = True
+                    else:
+                        logger.error(
+                            f"Failed to set long order for account A{i} at {ENTRIES[i]}"
+                        )
 
-
+                if (
+                    active_positions[f"A{i}"]["Sell"] == False
+                    and active_orders[f"A{i}"]["Sell"] == False
+                ):
+                    if (
+                        accounts_dict[f"A{i}"].short_order(
+                            TICKER, ENTRIES[i], QTY, stop_loss=(0.5 / 100)
+                        )
+                        == True
+                    ):
+                        active_orders[f"A{i}"]["Sell"] = True
+                    else:
+                        logger.error(
+                            f"Failed to set conditional short order for account A{i} at {ENTRIES[i]}"
+                        )
 
         LP = CP
-
-    
-    
-    

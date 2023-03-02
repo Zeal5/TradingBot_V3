@@ -168,7 +168,7 @@ class Orders:
         # return all active_orders
         return a # active_limit_orders
 
-    def short_order(self, ticker, entry_price: float, qty, short_tp, stop_loss) -> bool:
+    def short_order(self, ticker, entry_price: float, qty, stop_loss,short_tp=None) -> bool:
         """places short order takes in entry price"""
         try:
             short = self.session.place_active_order(
