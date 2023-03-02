@@ -4,6 +4,9 @@ from dotenv import dotenv_values
 from pybit import usdt_perpetual
 from Bybit import Orders, logger
 
+os.system("cls")
+GO = "\x1b[u"
+SAV = "\x1b[s"
 config = dotenv_values(".env")
 CP = 0
 LP = 0
@@ -11,10 +14,11 @@ LP = 0
 GRID = range(0, 2)
 TICKER = "BTCUSDT"
 QTY = 0.001
-ENTRIES = [15_000]
+ENTRIES = [15_000,20_000]
 STOP_LOSS = 0.5 / 100
 active_positions = {"A0": {"Buy": False, "Sell": False}}
 active_orders = {"A0": {"Buy": False, "Sell": False}}
+TOTAL_TARDES = {"A0": 0}
 
 
 def update_active_orders():
@@ -25,6 +29,9 @@ def update_active_orders():
 def initiaize_account_instance() -> dict:
     """Based on GRID= range(number of accounts) global variable creates account instances
     in accounts_dict"""
+    # Fill TOTAL_TRADES variable with k,v unless error == can't add int to None type
+    for _ in GRID:
+        TOTAL_TARDES[f"A{_}"] = 0
 
     accounts_dict = {}
     for i in GRID:
@@ -32,7 +39,8 @@ def initiaize_account_instance() -> dict:
             name=f"A{i}", api_key=config[f"A{i}"], api_secret=config[f"S{i}"]
         )
     for account_name, account_instance in accounts_dict.items():
-        active_positions[f"{account_name}"] = account_instance.open_positions(TICKER)
+        active_positions[f"{account_name}"] = account_instance.open_positions(
+            TICKER)
 
     return accounts_dict
 
@@ -43,14 +51,14 @@ def initialize_execution_stream() -> dict:
 
     def positions(account, mes):
         ticker = mes["data"][0]["symbol"]
-        active_positions[account] = accounts_dict[account].open_positions(ticker)
+        active_positions[account] = accounts_dict[account].open_positions(
+            ticker)
         active_orders[account] = accounts_dict[account].active_orders(TICKER)
 
     def wrapper(account):
         return lambda data: positions(account, mes=data)
 
     ws_dict = {}
-    account_dict = {}
     for i in GRID:
         ws = usdt_perpetual.WebSocket(
             test=False, api_key=config[f"A{i}"], api_secret=config[f"S{i}"]
@@ -96,6 +104,7 @@ def open_positions():
                     == True
                 ):
                     active_orders[f"A{i}"]["Buy"] = True
+                    TOTAL_TARDES[f"A{i}"] += 1
                 else:
                     logger.error(
                         f"Failed to set long order for account A{i} at {ENTRIES[i]}"
@@ -112,6 +121,7 @@ def open_positions():
                     == True
                 ):
                     active_orders[f"A{i}"]["Sell"] = True
+                    TOTAL_TARDES[f"A{i}"] += 1
                 else:
                     logger.error(
                         f"Failed to set conditional short order for account A{i} at {ENTRIES[i]}"
@@ -132,6 +142,7 @@ def open_positions():
                     == True
                 ):
                     active_orders[f"A{i}"]["Buy"] = True
+                    TOTAL_TARDES[f"A{i}"] += 1
                 else:
                     logger.error(
                         f"Failed to set long order for account A{i} at {ENTRIES[i]}"
@@ -148,6 +159,7 @@ def open_positions():
                     == True
                 ):
                     active_orders[f"A{i}"]["Sell"] = True
+                    TOTAL_TARDES[f"A{i}"] += 1
                 else:
                     logger.error(
                         f"Failed to set conditional short order for account A{i} at {ENTRIES[i]}"
@@ -158,10 +170,15 @@ accounts_dict = initiaize_account_instance()
 initialize_execution_stream()
 current_market_price()
 update_active_orders()
+print(f"{'ACCOUNT':<10}{'ENTRY':<15}{'STOP_LOSS':<10}{'TOTAL_TRADES':<8}")
+print(SAV)
 
 while True:
     if CP != LP:
-        print(f"cp = {CP} / lp = {LP} {active_orders} {active_positions}", end="\r")
         open_positions()
+        for grid_line in GRID:
+            print(
+                f"{('A'+str(grid_line)):<10}{ENTRIES[grid_line]:<10.2f}{(ENTRIES[grid_line] + (ENTRIES[grid_line] * STOP_LOSS)):<15.2f}{TOTAL_TARDES[f'A{grid_line}']:<8}{GO}" 
+            ) 
 
         LP = CP
