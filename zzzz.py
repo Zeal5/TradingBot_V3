@@ -10,8 +10,16 @@ import re
 
 # print(a.open_positions("BTCUSDT"))
 
-p = 0.06925
-a = re.findall('([\d+]*)(\.)([\d+]*)',str(p))
-b = len(str(a[0][2]))
-print(round(p +(p*0.005),b))
-print(p +(p*0.005))
+# p = 0.06925
+# a = re.findall('([\d+]*)(\.)([\d+]*)',str(p))
+# b = len(str(a[0][2]))
+# print(round(p +(p*0.005),b))
+# print(p +(p*0.005))
+
+
+def a():
+    print(b)
+
+b = 0
+
+a()

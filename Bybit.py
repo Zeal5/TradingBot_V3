@@ -117,13 +117,24 @@ class Orders:
         return position
 
     def active_orders(self,ticker):
-        """Returns all limit orders in place"""
+        """Returns all limit orders"""
         limit_orders = self.session.get_active_order(symbol=ticker)["result"][
             "data"
         ]
-        conditional_orders = self.session.get_conditional_order(symbol=ticker)[
-            "result"
-        ]["data"]
+        """active_limit_order dict copy
+            active_limit_orders = {
+            i["order_id"]: {
+                "Symbol": i["symbol"],
+                "side": i["side"],
+                "status": i["order_status"],
+                "price": i["price"],
+                "tp": i["take_profit"],
+                "sl": i["stop_loss"],
+            }
+            for i in limit_orders
+            if i["order_status"] == "New"
+        }"""
+        
         active_limit_orders = {
             i["order_id"]: {
                 "Symbol": i["symbol"],
@@ -136,6 +147,12 @@ class Orders:
             for i in limit_orders
             if i["order_status"] == "New"
         }
+
+
+
+        conditional_orders = self.session.get_conditional_order(symbol=ticker)[
+            "result"
+        ]["data"]
 
         active_conditional_orders = {
             i["stop_order_id"]: {
@@ -150,6 +167,8 @@ class Orders:
             if i["order_status"] == "Untriggered"
         }
         active_limit_orders.update(active_conditional_orders)
+        a = {"Buy": False, "Sell": True}
+
         # return all active_orders
         return active_limit_orders
 
