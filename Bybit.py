@@ -1,8 +1,11 @@
 from pybit import usdt_perpetual
-from pprint import pprint
 import pybit.exceptions
 import logging
-
+from pprint import pprint
+########
+from dotenv import dotenv_values
+config = dotenv_values(".env")
+###########
 # stop imported moduels from logging
 logging.getLogger().setLevel(logging.WARNING)
 for handler in logging.getLogger().handlers:
@@ -41,10 +44,13 @@ class Orders:
         self.session = usdt_perpetual.HTTP(
             endpoint="https://api.bybit.com", api_key=api_key, api_secret=api_secret
         )
+        self.ws = usdt_perpetual.WebSocket(
+            test=False, api_key=api_secret, api_secret=api_secret
+        )
+
         self.name = str(name)
         logger.info(f'{self.name} account initiated')
 
-       
     def __str__(self) -> str:
         return f"Account {(self.name).upper()}"
 
@@ -52,6 +58,20 @@ class Orders:
         """returns market price for trading pair"""
         data = self.session.latest_information_for_symbol(symbol=ticker)
         return float(data["result"][0]["last_price"])
+
+    def set_hedge_mode(self,ticker:str ):
+        """change accounts mode from one-sided to hedge mode """
+        try:
+            mode = self.session.position_mode_switch(
+
+                    symbol= ticker,
+                    mode= "BothSide" #"MergedSingle"
+                    )
+            if mode['ret_code'] == 0 :
+                logger.info(f"{self.name} position Mode changed to hedge") 
+        except pybit.exceptions.InvalidRequestError as e:
+            if 'Position mode not modified' in str(e):
+                logger.info(f"{self.name} already in hedge mode")
 
     def set_cross_margin(self,ticker):
         """Change Margin mode to Cross with 10x levrage"""
@@ -79,12 +99,18 @@ class Orders:
         Sets cross levrage automatically if is_isolated is true"""
 
         positions = self.session.my_position(symbol=ticker)["result"]
-        if positions[0]['is_isolated']== True:
-            self.set_cross_margin()
+        
+        # chnage pos mode to hedge
+        if positions[0]['mode'] != "BothSide":
+            self.set_hedge_mode(ticker)
+            positions = self.session.my_position(symbol=ticker)["result"]
 
+        # change pos mode to cross 10x
+        if positions[0]['is_isolated'] == True:
+            self.set_cross_margin(ticker)
+            positions = self.session.my_position(symbol=ticker)["result"]
 
-
-        position = {"Buy": False, "Sell": True}
+        position =  {"Buy": False, "Sell": True}
 
         position[positions[0]["side"]] = True if positions[0]["size"] != 0 else False
         position[positions[1]["side"]] = True if positions[1]["size"] != 0 else False
@@ -223,3 +249,5 @@ class Orders:
             return False
         if short["ext_code"] == "" or short["ret_code"] == 0:
             logger.info(f"{self} Limit Short has been set at {entry_price} tp:{short_tp if short_tp else ''}/sl:{entry_price + (entry_price * stop_loss)}")
+
+
