@@ -3,12 +3,12 @@ from dotenv import dotenv_values
 import re
 
 
-# config = dotenv_values(".env")
+config = dotenv_values(".env")
 
-# i = 1
-# a = Orders(name=f"A", api_key=config[f"A{i}"], api_secret=config[f"S{i}"])
+i = 1
+a = Orders(name=f"A", api_key=config[f"A{i}"], api_secret=config[f"S{i}"])
 
-# print(a.open_positions("BTCUSDT"))
+print(f'a= {a.active_orders("BTCUSDT")}')
 
 # p = 0.06925
 # a = re.findall('([\d+]*)(\.)([\d+]*)',str(p))
@@ -17,9 +17,5 @@ import re
 # print(p +(p*0.005))
 
 
-def a():
-    print(b)
 
-b = 0
 
-a()

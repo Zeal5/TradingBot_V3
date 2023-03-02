@@ -11,6 +11,10 @@ LP = 0
 GRID = range(0, 2)
 TRADE = {"BTCUSDT": []}
 active_positions = {"A0": {"Buy": False, "Sell": False}}
+active_orders = {}
+def update_active_orders():
+    for account_name, account_instance in accounts_dict.items():
+        active_orders[account_name] = account_instance.active_orders("BTCUSDT")
 
 def initiaize_account_instance() -> dict:
     """Based on GRID= range(number of accounts) global variable creates account instances
@@ -25,7 +29,7 @@ def initiaize_account_instance() -> dict:
         active_positions[f"{account_name}"] = account_instance.open_positions("BTCUSDT")
 
     return accounts_dict
-
+    
 def initialize_execution_stream() -> dict:
     """Initialize executions streams for all accounts when new positions is opend/closed
     update active_positons dict to see if new position has been opened or closed in which account"""
@@ -54,7 +58,7 @@ def initialize_execution_stream() -> dict:
 
 def current_market_price() -> None:
     """instrument stream to open web_socket which keeps updating CP global variable"""
-    
+
     def price_update(message):
         global CP
         CP = float(message["data"]["mark_price"])
@@ -68,9 +72,9 @@ def current_market_price() -> None:
 accounts_dict = initiaize_account_instance()
 initialize_execution_stream()
 current_market_price()
-
+update_active_orders()
 while True:
     time.sleep(1)
     if CP != LP:
-        print(f"cp = {CP} / lp = {LP} {active_positions}", end="\r")
+        print(f"cp = {CP} / lp = {LP} {active_orders}", end="\r")
         LP = CP
