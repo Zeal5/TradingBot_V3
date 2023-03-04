@@ -1,5 +1,4 @@
-import os
-import re
+import os, re, time
 from dotenv import dotenv_values
 from pybit import usdt_perpetual
 from Bybit import Orders, logger
@@ -13,15 +12,15 @@ config = dotenv_values(".env")
 CP = 0
 LP = 0
 # accounts to be used by this script .env should have all accounts
-GRID = range(0, 1)
-TICKER = "AGIXUSDT"
-QTY = 15
-ENTRIES = [0.53435]
+TICKER = "AKROUSDT"
+QTY = 200
+ENTRIES = [0.006045,0.005950]
+GRID = range(0, len(ENTRIES))
 # get decimal digit count for better print
-regex_pattern = re.findall('([\d+]*)(\.)([\d+]*)',str(float(ENTRIES[0])))
+regex_pattern = re.findall("([\d+]*)(\.)([\d+]*)", str(float(ENTRIES[0])))
 formate_int = len(str(regex_pattern[0][2]))
 
-STOP_LOSS = 0.5 / 100
+STOP_LOSS = 1.1 / 100
 active_positions = {"A0": {"Buy": False, "Sell": False}}
 active_orders = {"A0": {"Buy": False, "Sell": False}}
 TOTAL_TARDES = {"A0": 0}
@@ -45,8 +44,7 @@ def initiaize_account_instance() -> dict:
             name=f"A{i}", api_key=config[f"A{i}"], api_secret=config[f"S{i}"]
         )
     for account_name, account_instance in accounts_dict.items():
-        active_positions[f"{account_name}"] = account_instance.open_positions(
-            TICKER)
+        active_positions[f"{account_name}"] = account_instance.open_positions(TICKER)
 
     return accounts_dict
 
@@ -57,9 +55,10 @@ def initialize_execution_stream() -> dict:
 
     def positions(account, mes):
         ticker = mes["data"][0]["symbol"]
-        active_positions[account] = accounts_dict[account].open_positions(
-            ticker)
+        active_positions[account] = accounts_dict[account].open_positions(ticker)
+        logger.info(mes["data"][0])
         active_orders[account] = accounts_dict[account].active_orders(TICKER)
+        logger.info(f"orders = {active_orders} positions= {active_positions}")
 
     def wrapper(account):
         return lambda data: positions(account, mes=data)
@@ -105,7 +104,7 @@ def open_positions():
             ):
                 if (
                     accounts_dict[f"A{i}"].long_order(
-                        TICKER, ENTRIES[i], QTY, stop_loss=(STOP_LOSS)
+                        TICKER, ENTRIES[i], QTY, stop_loss= round(ENTRIES[i] - (ENTRIES[i] * STOP_LOSS),formate_int)
                     )
                     == True
                 ):
@@ -122,7 +121,7 @@ def open_positions():
             ):
                 if (
                     accounts_dict[f"A{i}"].conditional_short(
-                        TICKER, ENTRIES[i], QTY, stop_loss=(STOP_LOSS)
+                        TICKER, ENTRIES[i], QTY, stop_loss=round(ENTRIES[i] + (ENTRIES[i] * STOP_LOSS),formate_int)
                     )
                     == True
                 ):
@@ -143,7 +142,7 @@ def open_positions():
             ):
                 if (
                     accounts_dict[f"A{i}"].conditional_long(
-                        TICKER, ENTRIES[i], QTY, stop_loss=(STOP_LOSS)
+                        TICKER, ENTRIES[i], QTY, stop_loss=round(ENTRIES[i] - (ENTRIES[i] * STOP_LOSS),formate_int)
                     )
                     == True
                 ):
@@ -151,7 +150,7 @@ def open_positions():
                     TOTAL_TARDES[f"A{i}"] += 1
                 else:
                     logger.error(
-                        f"Failed to set long order for account A{i} at {ENTRIES[i]}"
+                        f"Failed to set conditional long order for account A{i} at {ENTRIES[i]}"
                     )
 
             if (
@@ -160,7 +159,7 @@ def open_positions():
             ):
                 if (
                     accounts_dict[f"A{i}"].short_order(
-                        TICKER, ENTRIES[i], QTY, stop_loss=(STOP_LOSS)
+                        TICKER, ENTRIES[i], QTY, stop_loss=round(ENTRIES[i] + (ENTRIES[i] * STOP_LOSS),formate_int)
                     )
                     == True
                 ):
@@ -168,7 +167,7 @@ def open_positions():
                     TOTAL_TARDES[f"A{i}"] += 1
                 else:
                     logger.error(
-                        f"Failed to set conditional short order for account A{i} at {ENTRIES[i]}"
+                        f"Failed to set short order for account A{i} at {ENTRIES[i]}"
                     )
 
 
@@ -184,14 +183,20 @@ while True:
         open_positions()
         trade_count = 0
         for grid_line in GRID:
-            lsl = round(ENTRIES[grid_line] - (ENTRIES[grid_line] * STOP_LOSS),formate_int)
-            ssl = round(ENTRIES[grid_line] + (ENTRIES[grid_line] * STOP_LOSS),formate_int)
-            trade_count += TOTAL_TARDES[f'A{grid_line}']
+            lsl = round(
+                ENTRIES[grid_line] - (ENTRIES[grid_line] * STOP_LOSS), formate_int
+            )
+            ssl = round(
+                ENTRIES[grid_line] + (ENTRIES[grid_line] * STOP_LOSS), formate_int
+            )
+            trade_count += TOTAL_TARDES[f"A{grid_line}"]
             print(
-                f"{('A'+str(grid_line)):<10}{ENTRIES[grid_line]:<15.{formate_int}f}{(str(lsl)+'/'+str(ssl)):<20}{TOTAL_TARDES[f'A{grid_line}']:<8}{'-' if active_positions[f'A{grid_line}']['Buy'] == False and active_positions[f'A{grid_line}']['Sell'] == False else 'L' if active_positions[f'A{grid_line}']['Buy'] == True and active_positions[f'A{grid_line}']['Sell'] == False else 'S' if active_positions[f'A{grid_line}']['Buy'] == False and active_positions[f'A{grid_line}']['Sell'] == True else '/'} " 
-            ) 
+                f"{('A'+str(grid_line)):<10}{ENTRIES[grid_line]:<15.{formate_int}f}{(str(lsl)+'/'+str(ssl)):<20}{TOTAL_TARDES[f'A{grid_line}']:<8}{'-' if active_positions[f'A{grid_line}']['Buy'] == False and active_positions[f'A{grid_line}']['Sell'] == False else 'L' if active_positions[f'A{grid_line}']['Buy'] == True and active_positions[f'A{grid_line}']['Sell'] == False else 'S' if active_positions[f'A{grid_line}']['Buy'] == False and active_positions[f'A{grid_line}']['Sell'] == True else '/'} "
+            )
         print(f"\n\n{'SUMMARY':-<45}")
-        print(f'PRICE = {CP:30.{formate_int}f} {trade_count:>7}')
+        print(f"PRICE = {CP:30.{formate_int}f} {trade_count:>7}")
         print(GO)
 
         LP = CP
+    else:
+        time.sleep(1)

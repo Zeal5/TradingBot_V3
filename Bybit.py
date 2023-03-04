@@ -132,6 +132,7 @@ class Orders:
             if i["order_status"] == "New"
         }
 
+
         conditional_orders = self.session.get_conditional_order(symbol=ticker)["result"]["data"] or []
 
         active_conditional_orders = {
@@ -144,9 +145,10 @@ class Orders:
                 "sl": i["stop_loss"],
             }
             for i in conditional_orders
-            if i["order_status"] == "Untriggered"
+            if i["order_status"] == "Untriggered" and i["reduce_only"] == False
         }
         # active_limit_orders.update(active_conditional_orders)
+
         
         buy = False
         sell = False
@@ -181,7 +183,7 @@ class Orders:
                 close_on_trigger=False,
                 time_in_force="GoodTillCancel",
                 take_profit=short_tp if short_tp else "",
-                stop_loss=entry_price + (entry_price * stop_loss),
+                stop_loss=stop_loss
             )
         except pybit.exceptions.InvalidRequestError as e:
             logger.error(f"({self}) has raised an exception {{ {e} }}")
@@ -189,7 +191,7 @@ class Orders:
 
         if short["ext_code"] == "" or short["ret_code"] == 0:
             logger.info(
-                f"{self} Limit short has been set at {entry_price} tp:{short_tp if short_tp else ''}/sl:{entry_price + (entry_price * stop_loss)}"
+                f"{self} Limit short has been set at {entry_price} tp:{short_tp if short_tp else ''}/sl:{stop_loss}"
             )
             return True
 
@@ -207,7 +209,7 @@ class Orders:
                 reduce_only=False,
                 close_on_trigger=False,
                 take_profit=long_tp if long_tp else "",
-                stop_loss=entry_price - (entry_price * stop_loss),
+                stop_loss=stop_loss,
             )
 
         except pybit.exceptions.InvalidRequestError as e:
@@ -216,7 +218,7 @@ class Orders:
 
         if long["ext_code"] == "" or long["ret_code"] == 0:
             logger.info(
-                f"{self} Limit Long has been set at {entry_price} tp:{long_tp if long_tp else ''}/sl:{entry_price - (entry_price * stop_loss)}"
+                f"{self} Limit Long has been set at {entry_price} tp:{long_tp if long_tp else ''}/sl:{stop_loss}"
             )
             return True
 
@@ -235,7 +237,7 @@ class Orders:
                 trigger_by="LastPrice",
                 reduce_only=False,
                 close_on_trigger=False,
-                stop_loss=entry_price - (entry_price * stop_loss),
+                stop_loss=stop_loss,
                 take_profit=long_tp if long_tp else "",
             )
 
@@ -244,7 +246,7 @@ class Orders:
             return False
         if long["ext_code"] == "" or long["ret_code"] == 0:
             logger.info(
-                f"{self} Limit Long has been set at {entry_price} tp:{long_tp if long_tp else ''}/sl:{entry_price - (entry_price * stop_loss)}"
+                f"{self} Limit Long has been set at {entry_price} tp:{long_tp if long_tp else ''}/sl:{stop_loss}"
             )
             return True
 
@@ -263,7 +265,7 @@ class Orders:
                 trigger_by="LastPrice",
                 reduce_only=False,
                 close_on_trigger=False,
-                stop_loss=entry_price + (entry_price * stop_loss),
+                stop_loss=stop_loss,
                 take_profit=short_tp if short_tp else "",
             )
         except pybit.exceptions.InvalidRequestError as e:
@@ -271,6 +273,6 @@ class Orders:
             return False
         if short["ext_code"] == "" or short["ret_code"] == 0:
             logger.info(
-                f"{self} Limit Short has been set at {entry_price} tp:{short_tp if short_tp else ''}/sl:{entry_price + (entry_price * stop_loss)}"
+                f"{self} Limit Short has been set at {entry_price} tp:{short_tp if short_tp else ''}/sl:{stop_loss}"
             )
             return True
